@@ -5,4 +5,5 @@ dependencies:
   - python=3.13
   - yfinance
   - psycopg
+  - pandas_market_calendars
 prefix: /Users/ZMCodi/miniforge3/envs/daily_insert
