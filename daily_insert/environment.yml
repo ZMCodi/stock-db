@@ -1,0 +1,8 @@
+name: daily_insert
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - yfinance
+  - psycopg
+prefix: /Users/ZMCodi/miniforge3/envs/daily_insert
