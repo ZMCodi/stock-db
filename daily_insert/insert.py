@@ -4,6 +4,7 @@ import pandas as pd
 import logging
 import pandas_market_calendars as mcal
 from datetime import datetime
+import pytz
 
 logging.basicConfig(
     filename=f'/Users/ZMCodi/git/personal/stock-db/daily_insert/logs/stock_insertion_{datetime.now().strftime("%Y%m%d")}.log',
@@ -17,33 +18,33 @@ def insert_data(table):
         with pg.connect(dbname='Stocks', user='postgres', password='420691') as conn:
             with conn.cursor() as cur:
                 tickers = get_tickers(cur, table)
+                    
                 logging.info(f"Found {len(tickers)} tickers to process")
 
                 if not tickers:
                     return
-                
-                last_date = get_last_date(cur, table)
 
                 df_list = []
                 failed_downloads = []
                 for ticker in tickers:
-                    try:
-                        if table == 'five_minute':
-                            data = yf.download(ticker, start=last_date + pd.Timedelta(days=1), interval='5m')
-                        else:
-                            data = yf.download(ticker, start=last_date + pd.Timedelta(days=1))
-                        data = data.droplevel(1, axis=1)
-                        if table == 'daily_forex':
-                            data['currency_pair'] = f'{ticker[:3]}/{ticker[3:6]}'
-                        else:
-                            data['ticker'] = ticker
-                        df_list.append(data)
-                        logging.info(f"Successfully downloaded data for {ticker}")
 
-                    except Exception as e:
+                    if table == 'five_minute':
+                        data = get_data(cur, table, ticker)
+                    else:
+                        data = get_data(cur, table, ticker)
+                    
+                    if data.empty:
                         failed_downloads.append(ticker)
-                        logging.error(f"Failed to download {ticker}: {str(e)}")
+                        logging.error(f"Failed to download {ticker} for {table} table")
                         continue
+
+                    data = data.droplevel(1, axis=1)
+                    if table == 'daily_forex':
+                        data['currency_pair'] = f'{ticker[:3]}/{ticker[3:6]}'
+                    else:
+                        data['ticker'] = ticker
+                    df_list.append(data)
+                    logging.info(f"Successfully downloaded data for {ticker}")
 
                 if not df_list:
                     logging.info("No new data to insert")
@@ -113,18 +114,19 @@ def get_tickers(cur, table):
         return tickers
     
     except Exception as e:
-        logging.error(f"Database error: {str(e)}")
+        logging.error(f"Fetching tickers error: {str(e)}")
         raise
 
 def get_open_exchange(cur):
     try:
-        cur.execute('SELECT DISTINCT(exchange) FROM tickers')
+        cur.execute("SELECT DISTINCT(exchange) FROM tickers WHERE exchange != 'CCC'")
         exchanges = [exc[0] for exc in cur.fetchall()]
 
         # Mapping dictionary
         exchange_mapping = {
             'NYQ': 'NYSE',
-            'NMS': 'NASDAQ'
+            'NMS': 'NASDAQ',
+            'NGM': 'NASDAQ'
         }
 
         # Mapped list
@@ -156,30 +158,40 @@ def get_open_exchange(cur):
         return tickers
     
     except Exception as e:
-        logging.error(f"Database error: {str(e)}")
+        logging.error(f"Error fetching market calendar: {str(e)}")
         raise
 
-def get_last_date(cur, table):
+def get_data(cur, table, ticker):
     try:
-        cur.execute(f'SELECT MAX(date) FROM {table}')
+        cur.execute(f"SELECT MAX(date) FROM {table} WHERE ticker = '{ticker}'")
         if table == 'five_minute':
-            last_ts = cur.fetchone()[0]
+            last_ts = cur.fetchone()[0].replace(tzinfo=pytz.UTC)
             if last_ts is None:
                 logging.info("No existing data found, using default start date")
-                last_date = datetime.now().date() - pd.Timedelta(days=60)
+                last_date = datetime.now().date() - pd.Timedelta(days=61)
             else:
                 last_date = last_ts.date()
+
+            data = yf.download(ticker, start=last_date, interval='5m')
+            data = data[data.index > last_ts]
+
         else:
             last_date = cur.fetchone()[0]
             if last_date is None:
                 logging.info("No existing data found, using default start date")
-                last_date = datetime(2020, 1, 1)
-        logging.info(f"Last date in database: {last_date}")
-        return last_date
+                last_date = datetime(2019, 12, 31)
+            
+            data = yf.download(ticker, start=last_date + pd.Timedelta(days=1))
+
+
+        logging.info(f"Last date for {ticker}: {last_date}")
+        return data
     
     except Exception as e:
-        logging.error(f"Database error: {str(e)}")
+        logging.error(f"yfinance API error: {str(e)}")
         raise
+
+
 
 
 
