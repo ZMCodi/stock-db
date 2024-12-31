@@ -1,5 +1,5 @@
 *.log
-*.plist
+com.user.stockinsert.plist
 __pycache__/
 config.py
 *.sh
