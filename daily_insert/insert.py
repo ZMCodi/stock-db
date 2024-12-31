@@ -132,15 +132,6 @@ def get_open_exchange(cur):
         cur.execute("SELECT DISTINCT(exchange) FROM tickers WHERE exchange != 'CCC'")
         exchanges = [exc[0] for exc in cur.fetchall()]
 
-        # Mapping dictionary
-        exchange_mapping = {
-            'NYQ': 'NYSE',
-            'NMS': 'NASDAQ',
-        }
-
-        # Mapped list
-        exchanges = [exchange_mapping.get(exchange, exchange) for exchange in exchanges]
-
         closed_exchanges = []
         for exchange in exchanges:
             exc = mcal.get_calendar(exchange)
@@ -150,14 +141,9 @@ def get_open_exchange(cur):
         if closed_exchanges:
             logging.info(f"Closed exchanges: {closed_exchanges}")
 
-            db_exchanges = [
-                next((k for k, v in exchange_mapping.items() if v == exchange), exchange)
-                for exchange in closed_exchanges
-            ]
+            placeholder =  ', '.join(['%s'] * len(closed_exchanges))
 
-            placeholder =  ', '.join(['%s'] * len(db_exchanges))
-
-            cur.execute(f'SELECT ticker FROM tickers WHERE exchange NOT IN ({placeholder})', tuple(db_exchanges))
+            cur.execute(f'SELECT ticker FROM tickers WHERE exchange NOT IN ({placeholder})', tuple(closed_exchanges))
 
         else:
             cur.execute('SELECT ticker FROM tickers')
