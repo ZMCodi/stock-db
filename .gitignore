@@ -1,2 +1,6 @@
 *.log
-test.ipynb
+*.plist
+__pycache__/
+config.py
+*.sh
+.DS_Store

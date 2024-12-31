@@ -5,6 +5,7 @@ import logging
 import pandas_market_calendars as mcal
 from datetime import datetime
 import pytz
+from config import DB_CONFIG
 
 logging.basicConfig(
     filename=f'/Users/ZMCodi/git/personal/stock-db/daily_insert/logs/stock_insertion_{datetime.now().strftime("%Y%m%d")}.log',
@@ -15,7 +16,7 @@ logging.basicConfig(
 def insert_data(table):
     logging.info(f"Starting {table} data insertion")
     try:
-        with pg.connect(dbname='Stocks', user='postgres', password='420691') as conn:
+        with pg.connect(**DB_CONFIG) as conn:
             with conn.cursor() as cur:
                 tickers = get_tickers(cur, table)
                     
@@ -64,12 +65,21 @@ def insert_data(table):
                 logging.info(f"Total rows after cleaning: {len(clean)}")
 
                 if table == 'daily_forex':
-                    clean.drop(columns=['Adj Close', 'Volume'], inplace=True)
                     clean = clean.rename(columns={'Date': 'date', 'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close'})
                 elif table == 'five_minute':
-                    clean = clean.rename(columns={'Datetime': 'date', 'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Adj Close': 'adj_close', 'Volume': 'volume'})
+                    clean = clean.rename(columns={'Datetime': 'date', 'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'})
+                    if 'Adj Close' not in clean.columns:
+                        logging.warning("Adj Close column not found in data, using Close price")
+                        clean['adj_close'] = clean['close']
+                    else:
+                        clean = clean.rename(columns={'Adj Close': 'adj_close'})
                 else:
-                    clean = clean.rename(columns={'Date': 'date', 'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Adj Close': 'adj_close', 'Volume': 'volume'})
+                    clean = clean.rename(columns={'Date': 'date', 'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'})
+                    if 'Adj Close' not in clean.columns:
+                        logging.warning("Adj Close column not found in data, using Close price")
+                        clean['adj_close'] = clean['close']
+                    else:
+                        clean = clean.rename(columns={'Adj Close': 'adj_close'})
 
                 rows_inserted = 0
                 failed_inserts = []
@@ -126,7 +136,6 @@ def get_open_exchange(cur):
         exchange_mapping = {
             'NYQ': 'NYSE',
             'NMS': 'NASDAQ',
-            'NGM': 'NASDAQ'
         }
 
         # Mapped list
@@ -163,7 +172,11 @@ def get_open_exchange(cur):
 
 def get_data(cur, table, ticker):
     try:
-        cur.execute(f"SELECT MAX(date) FROM {table} WHERE ticker = '{ticker}'")
+        if table == 'daily_forex':
+            cur.execute(f"SELECT MAX(date) FROM {table} WHERE currency_pair = '{ticker[:3]}/{ticker[3:6]}'")
+        else:
+            cur.execute(f"SELECT MAX(date) FROM {table} WHERE ticker = '{ticker}'")
+
         if table == 'five_minute':
             last_ts = cur.fetchone()[0].replace(tzinfo=pytz.UTC)
             if last_ts is None:
@@ -173,7 +186,7 @@ def get_data(cur, table, ticker):
                 last_date = last_ts.date()
 
             data = yf.download(ticker, start=last_date, interval='5m')
-            data = data[data.index > last_ts]
+            data = data[data.index > pd.to_datetime(last_ts)]
 
         else:
             last_date = cur.fetchone()[0]
@@ -182,6 +195,7 @@ def get_data(cur, table, ticker):
                 last_date = datetime(2019, 12, 31)
             
             data = yf.download(ticker, start=last_date + pd.Timedelta(days=1))
+            data = data[data.index > pd.to_datetime(last_date)]
 
 
         logging.info(f"Last date for {ticker}: {last_date}")
