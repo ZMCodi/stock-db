@@ -29,10 +29,7 @@ def insert_data(table):
                 failed_downloads = []
                 for ticker in tickers:
 
-                    if table == 'five_minute':
-                        data = get_data(cur, table, ticker)
-                    else:
-                        data = get_data(cur, table, ticker)
+                    data = get_data(cur, table, ticker)
                     
                     if data.empty:
                         failed_downloads.append(ticker)
@@ -190,9 +187,6 @@ def get_data(cur, table, ticker):
     except Exception as e:
         logging.error(f"yfinance API error: {str(e)}")
         raise
-
-
-
 
 
 if __name__ == '__main__':
