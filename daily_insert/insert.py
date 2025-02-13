@@ -13,6 +13,8 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
+gbx = ['HLAL.L', 'CNX1.L']
+
 def insert_data(table):
     logging.info(f"Starting {table} data insertion")
     try:
@@ -41,6 +43,13 @@ def insert_data(table):
                         data['currency_pair'] = f'{ticker[:3]}/{ticker[3:6]}'
                     else:
                         data['ticker'] = ticker
+
+                    if ticker in gbx:
+                        data[['Open', 'High', 'Low', 'Close']] /= 1000
+                        try:
+                            data[['Adj Close']] /= 1000
+                        except Exception as e:
+                            pass
                     df_list.append(data)
                     logging.info(f"Successfully downloaded data for {ticker}")
 
@@ -111,9 +120,9 @@ def insert_data(table):
 def get_tickers(cur, table):
     try:
         if table == 'daily_forex':
-            cur.execute('SELECT currency_pair FROM daily_forex')
+            cur.execute("SELECT DISTINCT(currency_pair) FROM daily_forex")
             tickers = [ticker[0] for ticker in cur.fetchall()]
-            tickers = list(set(tickers))
+            tickers = list(tickers)
             tickers = [f'{ticker[:3]}{ticker[4:7]}=X' for ticker in tickers]
         else:
             tickers = get_open_exchange(cur)
