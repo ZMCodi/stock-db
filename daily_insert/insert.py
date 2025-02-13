@@ -45,9 +45,9 @@ def insert_data(table):
                         data['ticker'] = ticker
 
                     if ticker in gbx:
-                        data[['Open', 'High', 'Low', 'Close']] /= 1000
+                        data[['Open', 'High', 'Low', 'Close']] /= 100
                         try:
-                            data[['Adj Close']] /= 1000
+                            data[['Adj Close']] /= 100
                         except Exception as e:
                             pass
                     df_list.append(data)
