@@ -13,7 +13,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-gbx = ['HLAL.L', 'CNX1.L']
+gbp = ['HIWS.L', 'V3AB.L', 'VFEG.L', 'VUSA.L']
 
 def insert_data(table):
     logging.info(f"Starting {table} data insertion")
@@ -44,7 +44,7 @@ def insert_data(table):
                     else:
                         data['ticker'] = ticker
 
-                    if ticker in gbx:
+                    if ticker not in gbp:
                         data[['Open', 'High', 'Low', 'Close']] /= 100
                         try:
                             data[['Adj Close']] /= 100
@@ -122,7 +122,6 @@ def get_tickers(cur, table):
         if table == 'daily_forex':
             cur.execute("SELECT DISTINCT(currency_pair) FROM daily_forex")
             tickers = [ticker[0] for ticker in cur.fetchall()]
-            tickers = list(tickers)
             tickers = [f'{ticker[:3]}{ticker[4:7]}=X' for ticker in tickers]
         else:
             tickers = get_open_exchange(cur)
@@ -177,7 +176,7 @@ def get_data(cur, table, ticker):
             else:
                 last_date = last_ts.date()
 
-            data = yf.download(ticker, start=last_date, interval='5m')
+            data = yf.download(ticker, start=last_date, interval='5m', auto_adjust=False)
             data = data[data.index > pd.to_datetime(last_ts)]
 
         else:
@@ -186,7 +185,7 @@ def get_data(cur, table, ticker):
                 logging.info("No existing data found, using default start date")
                 last_date = datetime(2019, 12, 31)
             
-            data = yf.download(ticker, start=last_date + pd.Timedelta(days=1))
+            data = yf.download(ticker, start=last_date + pd.Timedelta(days=1), auto_adjust=False)
             data = data[data.index > pd.to_datetime(last_date)]
 
 
