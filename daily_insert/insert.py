@@ -13,7 +13,8 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-gbp = ['HIWS.L', 'V3AB.L', 'VFEG.L', 'VUSA.L']
+gbp = ['HIWS.L', 'V3AB.L', 'VFEG.L', 'VUSA.L', '0P0000TKZO.L']
+mutual_fund = ['0P0000TKZO.L']
 
 def insert_data(table):
     logging.info(f"Starting {table} data insertion")
@@ -30,6 +31,8 @@ def insert_data(table):
                 df_list = []
                 failed_downloads = []
                 for ticker in tickers:
+                    if table == 'five_minute' and ticker in mutual_fund:
+                        continue
 
                     data = get_data(cur, table, ticker)
                     
@@ -44,7 +47,7 @@ def insert_data(table):
                     else:
                         data['ticker'] = ticker
 
-                    if ticker not in gbp:
+                    if ticker not in gbp and ticker.endswith('.L'):
                         data[['Open', 'High', 'Low', 'Close']] /= 100
                         try:
                             data[['Adj Close']] /= 100
